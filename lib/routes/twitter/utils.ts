@@ -394,6 +394,8 @@ const ProcessFeed = (ctx, { data = [] }, params = {}) => {
                     name: originalItem.user.name,
                     url: `https://x.com/${originalItem.user.screen_name}`,
                     avatar: originalItem.user.profile_image_url_https,
+                    screen_name: originalItem.user.screen_name,
+                    user_id_str: originalItem.user_id_str
                 },
             ],
             description,

@@ -10,10 +10,11 @@ import logger from '@/utils/logger';
 import ofetch from '@/utils/ofetch';
 import proxy from '@/utils/proxy';
 import login from './login';
+import { userToken } from '@/userToken';
 
 let authTokenIndex = 0;
 
-const token2Cookie = async (token) => {
+const token2Cookie = async (token, proxyUri = proxy.proxyUri) => {
     const c = await cache.get(`twitter:cookie:${token}`);
     if (c) {
         return c;
@@ -21,10 +22,10 @@ const token2Cookie = async (token) => {
     const jar = new CookieJar();
     await jar.setCookie(`auth_token=${token}`, 'https://x.com');
     try {
-        const agent = proxy.proxyUri
+        const agent = proxyUri
             ? new ProxyAgent({
                   factory: (origin, opts) => new CookieClient(origin as string, { ...opts, cookies: { jar } }),
-                  uri: proxy.proxyUri,
+                  uri: proxyUri,
               })
             : new CookieAgent({ cookies: { jar } });
         if (token) {
@@ -52,9 +53,12 @@ const token2Cookie = async (token) => {
 const lockPrefix = 'twitter:lock-token1:';
 
 const getAuth = async (retry: number) => {
-    if (config.twitter.authToken && retry > 0) {
-        const index = authTokenIndex++ % config.twitter.authToken.length;
-        const token = config.twitter.authToken[index];
+    const { authTokens, proxyUris } = await userToken.getAuthToken();
+
+    if (authTokens && retry > 0) {
+        const index = authTokenIndex++ % authTokens.length;
+        const token = authTokens[index];
+        const proxyUri = proxyUris[index]
         const lock = await cache.get(`${lockPrefix}${token}`, false);
         if (lock) {
             logger.debug(`twitter debug: twitter cookie for token ${token} is locked, retry: ${retry}`);
@@ -68,6 +72,7 @@ const getAuth = async (retry: number) => {
                 username: config.twitter.username?.[index],
                 password: config.twitter.password?.[index],
                 authenticationSecret: config.twitter.authenticationSecret?.[index],
+                proxyUri,
             };
         }
     }
@@ -82,13 +87,15 @@ export const twitterGot = async (
 ) => {
     const auth = await getAuth(30);
 
+    console.log(auth)
+
     if (!auth && !options?.allowNoAuth) {
         throw new ConfigNotFoundError('No valid Twitter token found');
     }
 
     const requestUrl = `${url}?${queryString.stringify(params)}`;
 
-    let cookie: string | Record<string, any> | null | undefined = await token2Cookie(auth?.token);
+    let cookie: string | Record<string, any> | null | undefined = await token2Cookie(auth?.token, auth?.proxyUri);
     if (!cookie && auth) {
         cookie = await login({
             username: auth.username,
@@ -108,13 +115,13 @@ export const twitterGot = async (
             cookie = JSON.parse(cookie);
         }
         const jar = CookieJar.deserializeSync(cookie as any);
-        const agent = proxy.proxyUri
+        const agent = auth?.proxyUri
             ? new ProxyAgent({
                   factory: (origin, opts) => new CookieClient(origin as string, { ...opts, cookies: { jar } }),
-                  uri: proxy.proxyUri,
+                  uri: auth?.proxyUri,
               })
             : new CookieAgent({ cookies: { jar } });
-        if (proxy.proxyUri) {
+        if (auth?.proxyUri) {
             logger.debug(`twitter debug: Proxying request: ${requestUrl}`);
         }
         dispatchers = {
@@ -186,9 +193,9 @@ export const twitterGot = async (
                         logger.debug(`twitter debug: unlock twitter cookie for token ${auth.token} with error1`);
                         await cache.set(`${lockPrefix}${auth.token}`, '', 1);
                     } else {
-                        const tokenIndex = config.twitter.authToken?.indexOf(auth.token);
-                        if (tokenIndex !== undefined && tokenIndex !== -1) {
-                            config.twitter.authToken?.splice(tokenIndex, 1);
+                        const { authTokens } = await userToken.getAuthToken();
+                        if (authTokens?.length) {
+                            await userToken.autoTokenExpired(auth.token);
                         }
                         if (auth.username) {
                             const usernameIndex = config.twitter.username?.indexOf(auth.username);

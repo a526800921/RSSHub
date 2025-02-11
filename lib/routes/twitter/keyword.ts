@@ -1,6 +1,9 @@
 import { Route, ViewType } from '@/types';
 import api from './api';
 import utils from './utils';
+import fs from 'fs';
+import path from 'path';
+import { config } from '@/config';
 
 export const route: Route = {
     path: '/keyword/:keyword/:routeParams?',
@@ -46,7 +49,12 @@ export const route: Route = {
 async function handler(ctx) {
     const keyword = ctx.req.param('keyword');
     await api.init();
-    const data = await api.getSearch(keyword);
+
+    const data = await api.getSearch(keyword)?.catch((err) => {
+        return Promise.reject(err);
+    });
+
+    fs.writeFileSync(path.resolve('json/keyword.json'), JSON.stringify(data));
 
     return {
         title: `Twitter Keyword - ${keyword}`,
