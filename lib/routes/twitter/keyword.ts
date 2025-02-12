@@ -3,7 +3,6 @@ import api from './api';
 import utils from './utils';
 import fs from 'fs';
 import path from 'path';
-import { config } from '@/config';
 
 export const route: Route = {
     path: '/keyword/:keyword/:routeParams?',

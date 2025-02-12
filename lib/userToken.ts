@@ -6,8 +6,8 @@ export const userToken = {
     getAuthToken: async () => {
         // 从数据库获取可用token和代理地址
         return {
-            authTokens: ['71498f52b2c3ade6718d50ece046ead3eff2d482', '40c2dd06d99d6d05a978b6207daa0631d132fa9b'], // config.twitter.authToken,
-            proxyUris: ['http://127.0.0.1:24000', 'http://127.0.0.1:24001'], // proxy.proxyUri,
+            authTokens: ['40c2dd06d99d6d05a978b6207daa0631d132fa9b'], // config.twitter.authToken,
+            proxyUris: ['http://127.0.0.1:7897'], // proxy.proxyUri,
         };
     },
     /** 用户token过期 */
